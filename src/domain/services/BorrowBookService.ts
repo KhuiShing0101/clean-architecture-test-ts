@@ -9,63 +9,69 @@
  *
  * This service coordinates borrowing and returning books with:
  * - Multi-entity state management
- * - Transaction boundaries
  * - Complex business rules (overdue fees)
  * - Immutable state changes
  *
- * ARCHITECTURAL FIX:
- * ==================
- * Now implements IBorrowBookService interface.
+ * ARCHITECTURAL FIXES:
+ * ====================
+ * Fix #2: Implements IBorrowBookService interface (Dependency Inversion)
+ * Fix #3: NO infrastructure dependencies (Pure domain logic)
  *
  * Benefits:
  * - Follows Dependency Inversion Principle
  * - Application Layer depends on interface (not concrete class)
- * - Easier testing (can mock the interface)
+ * - NO infrastructure coupling (no repositories!)
+ * - Easier testing (pure functions, no mocking needed)
  * - Better separation of concerns
  */
 
 import { User } from '../entities/User';
 import { Book } from '../entities/Book';
-import { IUserRepository } from '../repositories/IUserRepository';
-import { IBookRepository } from '../repositories/IBookRepository';
 import { IBorrowBookService, BorrowBookResult } from './IBorrowBookService';
 
 /**
  * Domain Service for Book Borrowing Operations
  *
+ * PURE DOMAIN LOGIC - No Infrastructure Dependencies
+ *
  * Responsibilities:
  * - Validate user eligibility (domain logic)
  * - Validate book availability (domain logic)
- * - Coordinate entity state changes
- * - Calculate overdue fees (time-based business rule)
- * - Manage transaction boundaries
+ * - Coordinate entity state changes (domain logic)
+ * - Calculate overdue fees (domain logic)
+ * - Return updated entities
  *
- * FIXED: Now implements IBorrowBookService interface
+ * NOT Responsible For:
+ * - Persistence (application layer handles this)
+ * - Transactions (application layer handles this)
+ * - Finding entities (application layer handles this)
+ *
+ * FIXED: No repository dependencies!
  */
 export class BorrowBookService implements IBorrowBookService {
   // Business constant: Overdue fee per day (¥100)
   static readonly OVERDUE_FEE_PER_DAY = 100;
 
-  constructor(
-    private readonly userRepository: IUserRepository,
-    private readonly bookRepository: IBookRepository
-  ) {}
+  // No constructor needed - no dependencies!
+  // Pure domain service with pure business logic
 
   /**
    * Execute book borrowing operation
+   *
+   * PURE DOMAIN LOGIC - No Persistence!
    *
    * Domain Logic Flow:
    * 1. Validate user eligibility (can borrow?)
    * 2. Validate book availability (is available?)
    * 3. Update user state (immutable)
    * 4. Update book state (immutable)
-   * 5. Persist both changes (transaction boundary)
+   * 5. Return updated entities (NO PERSISTENCE!)
    *
    * @param user - User attempting to borrow
    * @param book - Book to be borrowed
    * @returns Result with success status and updated entities
    */
-  async execute(user: User, book: Book): Promise<BorrowBookResult> {
+  execute(user: User, book: Book): BorrowBookResult {
     // Step 1: Validate user eligibility (domain business rule)
     if (!user.canBorrow()) {
       const reasons: string[] = [];
@@ -99,11 +105,8 @@ export class BorrowBookService implements IBorrowBookService {
     // Step 4: Update book state (immutable - from Lesson 2)
     const updatedBook = book.borrow(user.id);
 
-    // Step 5: Persist both changes (transaction boundary)
-    // In production: wrap in database transaction for atomicity
-    await this.userRepository.save(updatedUser);
-    await this.bookRepository.save(updatedBook);
-
+    // Step 5: Return updated entities
+    // Application layer will handle persistence!
     return {
       success: true,
       updatedUser,
@@ -114,18 +117,20 @@ export class BorrowBookService implements IBorrowBookService {
   /**
    * Execute book return operation
    *
+   * PURE DOMAIN LOGIC - No Persistence!
+   *
    * Domain Logic Flow:
    * 1. Validate ownership (borrowed by this user?)
    * 2. Calculate overdue fees if applicable
    * 3. Update user state (decrement count + add fees if overdue)
    * 4. Update book state (mark as available)
-   * 5. Persist both changes (transaction boundary)
+   * 5. Return updated entities (NO PERSISTENCE!)
    *
    * @param user - User returning the book
    * @param book - Book being returned
    * @returns Result with success status and updated entities
    */
-  async returnBook(user: User, book: Book): Promise<BorrowBookResult> {
+  returnBook(user: User, book: Book): BorrowBookResult {
     // Step 1: Validate ownership
     if (!book.borrowedBy || !book.borrowedBy.equals(user.id)) {
       return {
@@ -149,11 +154,8 @@ export class BorrowBookService implements IBorrowBookService {
     // Step 4: Update book state (mark as returned)
     const updatedBook = book.returnBook();
 
-    // Step 5: Persist both changes (transaction boundary)
-    // In production: wrap in database transaction for atomicity
-    await this.userRepository.save(updatedUser);
-    await this.bookRepository.save(updatedBook);
-
+    // Step 5: Return updated entities
+    // Application layer will handle persistence!
     return {
       success: true,
       updatedUser,

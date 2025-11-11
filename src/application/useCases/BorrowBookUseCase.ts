@@ -5,32 +5,48 @@
  * Coordinates between application concerns and domain logic.
  *
  * Application Layer Responsibilities:
- * - Find entities by ID
+ * - Find entities by ID (data retrieval)
  * - Validate entities exist
- * - Delegate to domain service
- * - Transform domain results to DTOs
+ * - Delegate to domain service (business logic)
+ * - Persist changes (transaction management)
+ * - Transform domain results to DTOs (data presentation)
  * - Handle application-level errors
  *
  * Domain Logic (delegated to BorrowBookService):
- * - Validate business rules
+ * - Validate business rules (PURE LOGIC - no infrastructure!)
  * - Coordinate entity state changes
  * - Enforce domain invariants
+ * - Return updated entities (NO PERSISTENCE!)
  *
- * ARCHITECTURAL FIX:
- * ==================
- * Input DTOs now receive VALUE OBJECTS instead of primitive strings.
+ * ARCHITECTURAL FIXES:
+ * ====================
+ * Fix #1: Input DTOs receive VALUE OBJECTS (not primitive strings)
+ * - Validation happens at application boundary
+ * - Presentation layer converts strings to value objects
+ *
+ * Fix #2: Domain service injected as INTERFACE (Dependency Inversion)
+ * - Use case depends on IBorrowBookService (not concrete class)
+ * - Better testability and decoupling
+ *
+ * Fix #3: Domain service has NO INFRASTRUCTURE dependencies
+ * - Domain service contains PURE business logic
+ * - NO repositories in domain service
+ * - Application layer handles persistence
+ * - Clear separation: Domain = logic, Application = orchestration + persistence
  *
  * Benefits:
- * - Validation happens at application boundary (not inside use case)
- * - Better encapsulation of domain rules
- * - Type safety - cannot pass invalid IDs
- * - Presentation layer handles primitive-to-value-object conversion
+ * ✅ Domain layer independent of infrastructure
+ * ✅ Better encapsulation and type safety
+ * ✅ Easier testing (pure functions don't need mocks)
+ * ✅ Follows Dependency Inversion Principle
+ * ✅ Clear layer responsibilities
  *
  * Flow:
  * 1. HTTP Request: { userId: "12345678" } (string)
  * 2. Presentation Layer: Converts to UserId.create("12345678") (validates!)
  * 3. Application Layer: Receives UserId value object (already validated)
- * 4. Use Case: Works with validated value object directly
+ * 4. Use Case: Finds entities, calls domain service, persists results
+ * 5. Domain Service: Pure logic, returns updated entities
  *
  * Example (Presentation Layer):
  * ```typescript
@@ -117,12 +133,13 @@ export class BorrowBookUseCase {
    * Execute the borrow book use case
    *
    * Application Flow:
-   * 1. Find user (application concern)
-   * 2. Find book (application concern)
-   * 3. Delegate to domain service (domain logic)
-   * 4. Transform to DTO (application concern)
+   * 1. Find entities (application concern - data retrieval)
+   * 2. Execute domain service (pure domain logic)
+   * 3. Persist changes (application concern - transaction boundary)
+   * 4. Transform to DTO (application concern - data presentation)
    *
-   * FIXED: Now receives validated value objects directly
+   * FIXED #3: Application layer now handles persistence
+   * Domain service returns updated entities, use case persists them
    *
    * @param input - Borrow book input data (with value objects)
    * @returns Borrowing result with DTOs
@@ -149,10 +166,9 @@ export class BorrowBookUseCase {
       };
     }
 
-    // Step 3: Execute domain service (domain logic - business rules)
-    const result = await this.borrowService.execute(user, book);
+    // Step 3: Execute domain service (PURE domain logic - no persistence!)
+    const result = this.borrowService.execute(user, book);
 
-    // Step 4: Transform domain result to application DTO
     if (!result.success) {
       return {
         success: false,
@@ -160,7 +176,13 @@ export class BorrowBookUseCase {
       };
     }
 
-    // Success - transform domain entities to DTOs
+    // Step 4: Persist changes (application concern - transaction boundary)
+    // Domain service returned updated entities, now we persist them
+    // In production: wrap in database transaction for atomicity
+    await this.userRepository.save(result.updatedUser!);
+    await this.bookRepository.save(result.updatedBook!);
+
+    // Step 5: Transform domain entities to DTOs (application concern)
     return {
       success: true,
       message: 'Book borrowed successfully',
@@ -238,13 +260,20 @@ export class ReturnBookUseCase {
   /**
    * Execute the return book use case
    *
-   * FIXED: Now receives validated value objects directly
+   * Application Flow:
+   * 1. Find entities (application concern - data retrieval)
+   * 2. Execute domain service (pure domain logic)
+   * 3. Persist changes (application concern - transaction boundary)
+   * 4. Transform to DTO (application concern - data presentation)
+   *
+   * FIXED #3: Application layer now handles persistence
+   * Domain service returns updated entities, use case persists them
    *
    * @param input - Return book input data (with value objects)
    * @returns Return result with DTOs and overdue fee info
    */
   async execute(input: ReturnBookInput): Promise<ReturnBookOutput> {
-    // Find user - no need to convert, already a UserId value object!
+    // Step 1: Find user - no need to convert, already a UserId value object!
     const user = await this.userRepository.findById(input.userId);
 
     if (!user) {
@@ -254,7 +283,7 @@ export class ReturnBookUseCase {
       };
     }
 
-    // Find book
+    // Step 2: Find book
     const book = await this.bookRepository.findById(input.bookId);
 
     if (!book) {
@@ -264,14 +293,14 @@ export class ReturnBookUseCase {
       };
     }
 
-    // Calculate potential overdue fee before return
+    // Calculate potential overdue fee before return (for display purposes)
     const wasOverdue = book.isOverdue();
     const overdueFee = wasOverdue
       ? book.getOverdueDays() * BorrowBookService.OVERDUE_FEE_PER_DAY
       : 0;
 
-    // Execute domain service
-    const result = await this.borrowService.returnBook(user, book);
+    // Step 3: Execute domain service (PURE domain logic - no persistence!)
+    const result = this.borrowService.returnBook(user, book);
 
     if (!result.success) {
       return {
@@ -280,7 +309,13 @@ export class ReturnBookUseCase {
       };
     }
 
-    // Success - transform to DTOs
+    // Step 4: Persist changes (application concern - transaction boundary)
+    // Domain service returned updated entities, now we persist them
+    // In production: wrap in database transaction for atomicity
+    await this.userRepository.save(result.updatedUser!);
+    await this.bookRepository.save(result.updatedBook!);
+
+    // Step 5: Transform to DTOs (application concern)
     return {
       success: true,
       message: wasOverdue

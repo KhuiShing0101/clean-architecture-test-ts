@@ -1,8 +1,16 @@
 /**
- * Borrow Book Service Interface - Lesson 3
+ * Borrow Book Service Interface - Lesson 3 (FIXED)
  *
  * Domain service interface for multi-entity borrowing operations.
  * Defined in domain layer, implemented in domain layer.
+ *
+ * ARCHITECTURAL FIX #3:
+ * =====================
+ * Domain services should contain PURE BUSINESS LOGIC only.
+ * - No infrastructure dependencies (no repositories!)
+ * - No persistence operations (no save() calls!)
+ * - Returns updated entities (application layer handles persistence)
+ * - Synchronous operations (no async/await - pure domain logic)
  *
  * Why Interface?
  * - Allows dependency injection
@@ -26,25 +34,39 @@ export interface BorrowBookResult {
 
 /**
  * Borrow Book Service Interface
+ *
+ * FIXED: Methods are now synchronous (no Promise)
+ * Domain logic should be pure - persistence is application layer concern
  */
 export interface IBorrowBookService {
   /**
    * Execute the borrowing operation
    * Coordinates User and Book entities
    *
+   * PURE DOMAIN LOGIC:
+   * - Validates business rules
+   * - Coordinates entity state changes
+   * - Returns updated entities (NO PERSISTENCE!)
+   *
    * @param user - User who wants to borrow
    * @param book - Book to be borrowed
    * @returns Result with updated entities or error
    */
-  execute(user: User, book: Book): Promise<BorrowBookResult>;
+  execute(user: User, book: Book): BorrowBookResult;
 
   /**
    * Execute the return operation
    * Coordinates User and Book entities
    *
+   * PURE DOMAIN LOGIC:
+   * - Validates ownership
+   * - Calculates overdue fees
+   * - Updates entity states
+   * - Returns updated entities (NO PERSISTENCE!)
+   *
    * @param user - User who is returning
    * @param book - Book to be returned
    * @returns Result with updated entities or error
    */
-  returnBook(user: User, book: Book): Promise<BorrowBookResult>;
+  returnBook(user: User, book: Book): BorrowBookResult;
 }
