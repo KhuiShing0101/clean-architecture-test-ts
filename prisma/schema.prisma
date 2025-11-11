@@ -54,3 +54,49 @@ enum UserStatus {
   ACTIVE
   SUSPENDED
 }
+
+// ========== Lesson 4: Order Management System (Aggregates) ==========
+
+model Order {
+  id           String      @id
+  customerId   String      @map("customer_id")
+  totalAmount  Float       @map("total_amount")
+  currency     String      @default("JPY")
+  status       OrderStatus @default(DRAFT)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  placedAt     DateTime?   @map("placed_at")
+  completedAt  DateTime?   @map("completed_at")
+  cancelledAt  DateTime?   @map("cancelled_at")
+
+  // One-to-many relationship with OrderItems
+  items OrderItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String   @id @default(uuid())
+  orderId       String   @map("order_id")
+  bookId        String   @map("book_id")
+  quantity      Int
+  unitPrice     Float    @map("unit_price")
+  currency      String   @default("JPY")
+  subtotalAmount Float   @map("subtotal_amount")
+
+  // Foreign key relationship to Order
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([bookId])
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  DRAFT
+  PLACED
+  COMPLETED
+  CANCELLED
+}
