@@ -9,7 +9,7 @@ datasource db {
   directUrl = env("DATABASE_URL")
 }
 
-// ========== Lesson 1: Book Management System ==========
+// ========== Lesson 1: Book Management System (Enhanced for Lesson 3) ==========
 
 model Book {
   id         String     @id
@@ -17,11 +17,14 @@ model Book {
   title      String
   author     String
   status     BookStatus @default(AVAILABLE)
+  borrowedBy String?    @map("borrowed_by")
+  borrowedAt DateTime?  @map("borrowed_at")
   created_at DateTime   @default(now()) @map("createdAt")
   updated_at DateTime   @updatedAt @map("updatedAt")
 
   @@index([isbn])
   @@index([status])
+  @@index([borrowedBy])
   @@map("books")
 }
 

@@ -1,13 +1,12 @@
 /**
- * MySQL Book Repository Implementation
+ * MySQL Book Repository Implementation - Enhanced for Lesson 3
  *
- * Concrete implementation of IBookRepository using MySQL (via Prisma).
- * This class belongs to the Infrastructure layer and implements
- * the interface defined in the Domain layer.
+ * Handles borrowedBy and borrowedAt fields for multi-entity operations
  */
 import { IBookRepository } from '../../domain/repositories/IBookRepository';
 import { Book, BookStatus } from '../../domain/entities/Book';
 import { ISBN } from '../../domain/valueObjects/ISBN';
+import { UserId } from '../../domain/valueObjects/UserId';
 import { PrismaClient } from '@prisma/client';
 
 export class MySQLBookRepository implements IBookRepository {
@@ -20,6 +19,8 @@ export class MySQLBookRepository implements IBookRepository {
         title: book.title,
         author: book.author,
         status: book.status,
+        borrowedBy: book.borrowedBy?.getValue() ?? null,
+        borrowedAt: book.borrowedAt,
         updatedAt: book.updatedAt,
       },
       create: {
@@ -28,6 +29,8 @@ export class MySQLBookRepository implements IBookRepository {
         title: book.title,
         author: book.author,
         status: book.status,
+        borrowedBy: book.borrowedBy?.getValue() ?? null,
+        borrowedAt: book.borrowedAt,
         createdAt: book.createdAt,
         updatedAt: book.updatedAt,
       },
@@ -81,21 +84,20 @@ export class MySQLBookRepository implements IBookRepository {
     return records.map((record) => this.toDomain(record));
   }
 
-  /**
-   * Convert database record to domain entity
-   * @private
-   */
   private toDomain(record: {
     id: string;
     isbn: string;
     title: string;
     author: string;
     status: string;
+    borrowedBy: string | null;
+    borrowedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
   }): Book {
     const isbnVO = new ISBN(record.isbn);
     const status = record.status as BookStatus;
+    const borrowedBy = record.borrowedBy ? UserId.create(record.borrowedBy) : null;
 
     return Book.reconstruct(
       record.id,
@@ -103,6 +105,8 @@ export class MySQLBookRepository implements IBookRepository {
       record.title,
       record.author,
       status,
+      borrowedBy,
+      record.borrowedAt,
       record.createdAt,
       record.updatedAt
     );
