@@ -1,5 +1,5 @@
 /**
- * Borrow Book Domain Service ⭐ - CORE OF LESSON 3
+ * Borrow Book Domain Service ⭐ - CORE OF LESSON 3 (FIXED)
  *
  * Domain Services are used when:
  * 1. An operation involves multiple entities (User + Book)
@@ -12,22 +12,23 @@
  * - Transaction boundaries
  * - Complex business rules (overdue fees)
  * - Immutable state changes
+ *
+ * ARCHITECTURAL FIX:
+ * ==================
+ * Now implements IBorrowBookService interface.
+ *
+ * Benefits:
+ * - Follows Dependency Inversion Principle
+ * - Application Layer depends on interface (not concrete class)
+ * - Easier testing (can mock the interface)
+ * - Better separation of concerns
  */
 
 import { User } from '../entities/User';
 import { Book } from '../entities/Book';
 import { IUserRepository } from '../repositories/IUserRepository';
 import { IBookRepository } from '../repositories/IBookRepository';
-
-/**
- * Result of a borrow/return operation
- */
-export interface BorrowBookResult {
-  success: boolean;
-  error?: string;
-  updatedUser?: User;
-  updatedBook?: Book;
-}
+import { IBorrowBookService, BorrowBookResult } from './IBorrowBookService';
 
 /**
  * Domain Service for Book Borrowing Operations
@@ -38,8 +39,10 @@ export interface BorrowBookResult {
  * - Coordinate entity state changes
  * - Calculate overdue fees (time-based business rule)
  * - Manage transaction boundaries
+ *
+ * FIXED: Now implements IBorrowBookService interface
  */
-export class BorrowBookService {
+export class BorrowBookService implements IBorrowBookService {
   // Business constant: Overdue fee per day (¥100)
   static readonly OVERDUE_FEE_PER_DAY = 100;
 

@@ -58,7 +58,7 @@
 
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { IBookRepository } from '../../domain/repositories/IBookRepository';
-import { BorrowBookService } from '../../domain/services/BorrowBookService';
+import { IBorrowBookService } from '../../domain/services/IBorrowBookService';
 import { UserId } from '../../domain/valueObjects/UserId';
 
 /**
@@ -100,16 +100,17 @@ export interface BorrowBookOutput {
 
 /**
  * Borrow Book Use Case
+ *
+ * FIXED: Now receives domain service via dependency injection
  */
 export class BorrowBookUseCase {
-  private readonly borrowService: BorrowBookService;
-
   constructor(
     private readonly userRepository: IUserRepository,
-    private readonly bookRepository: IBookRepository
+    private readonly bookRepository: IBookRepository,
+    private readonly borrowService: IBorrowBookService // ✅ Injected as interface!
   ) {
-    // Initialize domain service with repository dependencies
-    this.borrowService = new BorrowBookService(userRepository, bookRepository);
+    // Service is injected - no instantiation here
+    // Follows Dependency Inversion Principle
   }
 
   /**
@@ -222,15 +223,16 @@ export interface ReturnBookOutput {
 
 /**
  * Return Book Use Case
+ *
+ * FIXED: Now receives domain service via dependency injection
  */
 export class ReturnBookUseCase {
-  private readonly borrowService: BorrowBookService;
-
   constructor(
     private readonly userRepository: IUserRepository,
-    private readonly bookRepository: IBookRepository
+    private readonly bookRepository: IBookRepository,
+    private readonly borrowService: IBorrowBookService // ✅ Injected as interface!
   ) {
-    this.borrowService = new BorrowBookService(userRepository, bookRepository);
+    // Service is injected - no instantiation here
   }
 
   /**
