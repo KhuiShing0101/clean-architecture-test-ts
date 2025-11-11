@@ -1,5 +1,5 @@
 /**
- * Borrow Book Use Case
+ * Borrow Book Use Case - FIXED (Lesson 3)
  *
  * Application-level orchestration for borrowing books.
  * Coordinates between application concerns and domain logic.
@@ -15,6 +15,45 @@
  * - Validate business rules
  * - Coordinate entity state changes
  * - Enforce domain invariants
+ *
+ * ARCHITECTURAL FIX:
+ * ==================
+ * Input DTOs now receive VALUE OBJECTS instead of primitive strings.
+ *
+ * Benefits:
+ * - Validation happens at application boundary (not inside use case)
+ * - Better encapsulation of domain rules
+ * - Type safety - cannot pass invalid IDs
+ * - Presentation layer handles primitive-to-value-object conversion
+ *
+ * Flow:
+ * 1. HTTP Request: { userId: "12345678" } (string)
+ * 2. Presentation Layer: Converts to UserId.create("12345678") (validates!)
+ * 3. Application Layer: Receives UserId value object (already validated)
+ * 4. Use Case: Works with validated value object directly
+ *
+ * Example (Presentation Layer):
+ * ```typescript
+ * class BorrowBookController {
+ *   async borrowBook(req: Request, res: Response) {
+ *     try {
+ *       // Convert primitives to value objects HERE
+ *       const userId = UserId.create(req.body.userId); // Validates!
+ *
+ *       // Call use case with value objects
+ *       const result = await borrowBookUseCase.execute({
+ *         userId,  // Already validated UserId
+ *         bookId: req.body.bookId
+ *       });
+ *
+ *       res.json(result);
+ *     } catch (error) {
+ *       // Handle validation errors at presentation boundary
+ *       res.status(400).json({ error: error.message });
+ *     }
+ *   }
+ * }
+ * ```
  */
 
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
@@ -24,10 +63,16 @@ import { UserId } from '../../domain/valueObjects/UserId';
 
 /**
  * Input DTO for Borrow Book Use Case
+ *
+ * UPDATED (Lesson 3 - Fixed):
+ * - Uses value objects instead of primitive strings
+ * - Validation happens at application boundary (before use case)
+ * - Presentation layer converts strings to value objects
+ * - Use case receives validated value objects
  */
 export interface BorrowBookInput {
-  userId: string; // 8-digit user ID
-  bookId: string; // Book UUID
+  userId: UserId; // Value object (validated 8-digit user ID)
+  bookId: string; // Book UUID (could also be a BookId value object)
 }
 
 /**
@@ -76,18 +121,20 @@ export class BorrowBookUseCase {
    * 3. Delegate to domain service (domain logic)
    * 4. Transform to DTO (application concern)
    *
-   * @param input - Borrow book input data
+   * FIXED: Now receives validated value objects directly
+   *
+   * @param input - Borrow book input data (with value objects)
    * @returns Borrowing result with DTOs
    */
   async execute(input: BorrowBookInput): Promise<BorrowBookOutput> {
     // Step 1: Find user by ID (application concern - entity retrieval)
-    const userId = UserId.create(input.userId);
-    const user = await this.userRepository.findById(userId);
+    // No need to convert - already a UserId value object!
+    const user = await this.userRepository.findById(input.userId);
 
     if (!user) {
       return {
         success: false,
-        message: `User not found: ${input.userId}`,
+        message: `User not found: ${input.userId.getValue()}`,
       };
     }
 
@@ -141,9 +188,13 @@ export class BorrowBookUseCase {
 
 /**
  * Input DTO for Return Book Use Case
+ *
+ * UPDATED (Lesson 3 - Fixed):
+ * - Uses value objects instead of primitive strings
+ * - Validation happens at application boundary
  */
 export interface ReturnBookInput {
-  userId: string; // 8-digit user ID
+  userId: UserId; // Value object (validated 8-digit user ID)
   bookId: string; // Book UUID
 }
 
@@ -185,18 +236,19 @@ export class ReturnBookUseCase {
   /**
    * Execute the return book use case
    *
-   * @param input - Return book input data
+   * FIXED: Now receives validated value objects directly
+   *
+   * @param input - Return book input data (with value objects)
    * @returns Return result with DTOs and overdue fee info
    */
   async execute(input: ReturnBookInput): Promise<ReturnBookOutput> {
-    // Find user
-    const userId = UserId.create(input.userId);
-    const user = await this.userRepository.findById(userId);
+    // Find user - no need to convert, already a UserId value object!
+    const user = await this.userRepository.findById(input.userId);
 
     if (!user) {
       return {
         success: false,
-        message: `User not found: ${input.userId}`,
+        message: `User not found: ${input.userId.getValue()}`,
       };
     }
 
