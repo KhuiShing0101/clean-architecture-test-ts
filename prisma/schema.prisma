@@ -30,3 +30,24 @@ enum BookStatus {
   BORROWED
   RESERVED
 }
+
+// ========== Lesson 2: User Management System ==========
+
+model User {
+  id                 String     @id
+  name               String
+  email              String     @unique
+  status             UserStatus @default(ACTIVE)
+  currentBorrowCount Int        @default(0) @map("current_borrow_count")
+  overdueFees        Float      @default(0) @map("overdue_fees")
+  createdAt          DateTime   @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
