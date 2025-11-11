@@ -1,7 +1,7 @@
 /**
- * Place Order Use Case - Lesson 4
+ * Place Order Use Case - Lesson 4 (Updated for Lesson 5)
  *
- * Demonstrates aggregate state transitions.
+ * Demonstrates aggregate state transitions + Domain Events.
  * State transition logic is encapsulated in the Order aggregate.
  *
  * Application Layer Responsibilities:
@@ -9,6 +9,7 @@
  * - Validate order exists
  * - Delegate to aggregate method
  * - Save modified aggregate
+ * - **Publish domain events** ← NEW in Lesson 5
  * - Transform to DTO
  *
  * Domain Logic (handled by Order aggregate):
@@ -20,6 +21,8 @@
 
 import { IOrderRepository } from '../../domain/repositories/IOrderRepository';
 import { OrderId } from '../../domain/valueObjects/OrderId';
+import { IEventBus } from '../../domain/events/IEventBus';
+import { OrderPlacedEvent } from '../../domain/events/OrderPlacedEvent';
 
 /**
  * Input DTO for Place Order Use Case
@@ -52,10 +55,13 @@ export interface PlaceOrderOutput {
  * Place Order Use Case
  *
  * Transitions order from DRAFT to PLACED status.
- * Demonstrates aggregate state management.
+ * Demonstrates aggregate state management + event publishing.
  */
 export class PlaceOrderUseCase {
-  constructor(private readonly orderRepository: IOrderRepository) {}
+  constructor(
+    private readonly orderRepository: IOrderRepository,
+    private readonly eventBus: IEventBus
+  ) {}
 
   /**
    * Execute place order use case
@@ -64,7 +70,8 @@ export class PlaceOrderUseCase {
    * 1. Find order aggregate (application concern)
    * 2. Place order (domain logic via aggregate)
    * 3. Save modified aggregate (infrastructure concern)
-   * 4. Transform to DTO (application concern)
+   * 4. **Publish domain event** ← NEW in Lesson 5
+   * 5. Transform to DTO (application concern)
    *
    * @param input - Place order input
    * @returns Result with placed order DTO
@@ -92,7 +99,32 @@ export class PlaceOrderUseCase {
       // Step 3: Save modified aggregate
       await this.orderRepository.save(placedOrder);
 
-      // Step 4: Transform to DTO
+      // Step 4: Publish domain event (NEW in Lesson 5)
+      // This triggers reactions in other parts of the system:
+      // - Inventory reservation
+      // - Email notifications
+      // - Analytics tracking
+      // - Payment processing
+      const event = new OrderPlacedEvent(
+        placedOrder.id.getValue(),
+        placedOrder.customerId,
+        placedOrder.items.map((item) => ({
+          bookId: item.bookId,
+          quantity: item.quantity,
+          unitPrice: {
+            amount: item.unitPrice.getAmount(),
+            currency: item.unitPrice.getCurrency(),
+          },
+        })),
+        {
+          amount: placedOrder.total.getAmount(),
+          currency: placedOrder.total.getCurrency(),
+        }
+      );
+
+      await this.eventBus.publish(event);
+
+      // Step 5: Transform to DTO
       return {
         success: true,
         message: 'Order placed successfully',
